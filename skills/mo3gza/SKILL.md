@@ -35,6 +35,11 @@ Announce once: "mo3gza mode on." Then stay in it for every task this session —
 | e2e / Playwright / Cypress tests | `test-automation-engineer` |
 | new service, module, API contract | `backend-architect` |
 | Laravel implementation (controllers, services, Blade/Livewire, Eloquent), before dispatching generic implementers on PHP work | `senior-developer` |
+| React / Next.js / Vue implementation, before dispatching generic implementers on frontend work | `frontend-developer` |
+| Dockerfiles, CI/CD pipelines, deploy configs, cloud/infra changes | `devops-automator` |
+| new or changed API endpoints, third-party integrations, contract/regression tests | `api-tester` |
+| slow pages or queries, bundle size, load tests, Core Web Vitals | `performance-benchmarker` |
+| README, API reference, ADRs, changelogs, onboarding docs | `technical-writer` |
 | Flutter code | `mobile-app-builder` |
 | Flutter build/signing/store release, versioning, CI for mobile | `mobile-release-engineer` |
 | anything touching `.env*`, keys, tokens, keystores, CI secrets | `secrets-credential-engineer` |

@@ -5,8 +5,8 @@
   "plugins": [
     {
       "name": "mo3gza",
-      "description": "Full-power engineering mode: superpowers + Context7 + impeccable + 16 reviewer agents + format hook + /setup-project.",
-      "version": "1.1.0",
+      "description": "Full-power engineering mode: superpowers + Context7 + impeccable + 21 reviewer agents + format hook + /setup-project.",
+      "version": "1.2.0",
       "source": "./",
       "category": "productivity"
     }
