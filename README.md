@@ -3,6 +3,27 @@
 Say **`mo3gza`** in any message and the session switches into a disciplined
 build-and-review pipeline that stays on until you say **`mo3gza off`**.
 
+![mo3gza demo: prompt → brainstorm → plan → TDD → reviewer agents → verified](docs/demo.gif)
+
+## Why
+
+Claude Code is very good at writing code and not very good at *deciding what to do first*.
+Left alone it jumps straight to implementation, guesses library APIs, ships UI that looks
+like every other AI-generated page, and says "done" without running anything.
+
+The fix isn't one tool — it's a handful of good ones that each own one job, wired so you
+don't have to remember to call them:
+
+- **superpowers** owns the process: it asks before it builds, plans before it codes, and tests before it claims.
+- **Context7** owns library truth: current docs instead of half-remembered signatures.
+- **frontend-design + impeccable** own taste: opinionated UI, then an audit pass that catches "generic".
+- **21 specialist agents** own review: a payments engineer looks at the Stripe code, an a11y auditor at the form, a security auditor at the auth — automatically, based on what the diff touched.
+- **hooks** own hygiene: every file is formatted with the repo's own formatter on save; the mode survives long sessions.
+
+`mo3gza` (معجزة — "miracle") is the one word that turns all of it on. You describe the task in
+plain language; the mode decides which pieces apply. Nothing is installed into your projects
+and nothing AI-related ever gets committed.
+
 ## What it does
 
 | Layer | Provided by | Role |
