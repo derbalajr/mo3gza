@@ -1,7 +1,7 @@
 {
   "name": "mo3gza",
-  "description": "Full-power engineering mode for Claude Code: say \"mo3gza\" and the session runs superpowers process + Context7 docs + impeccable UI polish + 15 specialist reviewer agents + auto-formatting. Includes /setup-project for per-repo CLAUDE.local.md.",
-  "version": "1.0.0",
+  "description": "Full-power engineering mode for Claude Code: say \"mo3gza\" and the session runs superpowers process + Context7 docs + impeccable UI polish + 16 specialist reviewer agents + auto-formatting. Includes /setup-project for per-repo CLAUDE.local.md.",
+  "version": "1.1.0",
   "author": { "name": "Omar Derbala" },
   "keywords": ["workflow", "agents", "review", "tdd", "superpowers"]
 }

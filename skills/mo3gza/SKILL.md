@@ -34,6 +34,7 @@ Announce once: "mo3gza mode on." Then stay in it for every task this session —
 | new or changed UI | `accessibility-auditor` **and** `evidence-collector` (screenshots via Claude in Chrome when a dev server runs) |
 | e2e / Playwright / Cypress tests | `test-automation-engineer` |
 | new service, module, API contract | `backend-architect` |
+| Laravel implementation (controllers, services, Blade/Livewire, Eloquent), before dispatching generic implementers on PHP work | `senior-developer` |
 | Flutter code | `mobile-app-builder` |
 | Flutter build/signing/store release, versioning, CI for mobile | `mobile-release-engineer` |
 | anything touching `.env*`, keys, tokens, keystores, CI secrets | `secrets-credential-engineer` |

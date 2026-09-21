@@ -10,11 +10,11 @@ build-and-review pipeline that stays on until you say **`mo3gza off`**.
 | Process | [superpowers](https://github.com/obra/superpowers) | brainstorm → spec → plan → TDD with subagents; systematic debugging |
 | Library docs | Context7 MCP (bundled) | pulls current docs before writing framework code |
 | UI quality | frontend-design + [impeccable](https://github.com/pbakaus/impeccable) | taste while building, `/impeccable audit` + `polish` after |
-| Review gates | 15 specialist agents (from [agency-agents](https://github.com/msitarzewski/agency-agents)) | dispatched automatically based on what the diff touches |
+| Review gates | 16 specialist agents (from [agency-agents](https://github.com/msitarzewski/agency-agents)) | dispatched automatically based on what the diff touches |
 | Hygiene | hooks (bundled) | auto-format on every edit (prettier / pint / ruff / dart); session-mode reminder |
 | Per-repo rules | `/setup-project` | writes an untracked `CLAUDE.local.md` with stack, commands, conventions |
 
-### The 15 agents and when they fire
+### The 16 agents and when they fire
 | Situation | Agent |
 |---|---|
 | every code change | `code-reviewer` |
@@ -27,6 +27,7 @@ build-and-review pipeline that stays on until you say **`mo3gza off`**.
 | new or changed UI | `accessibility-auditor` + `evidence-collector` |
 | e2e tests | `test-automation-engineer` |
 | new service / module / API contract | `backend-architect` |
+| Laravel implementation (controllers, services, Blade/Livewire, Eloquent), before dispatching generic implementers on PHP work | `senior-developer` |
 | Flutter code | `mobile-app-builder` |
 | Flutter release / signing / stores | `mobile-release-engineer` |
 | `.env*`, keys, tokens, keystores | `secrets-credential-engineer` |
@@ -73,3 +74,6 @@ Call any agent directly at any time: "run secrets-credential-engineer on this re
 ```bash
 claude plugin marketplace update mo3gza && claude plugin update mo3gza@mo3gza
 ```
+
+## License
+MIT. Bundled agents are derived from [agency-agents](https://github.com/msitarzewski/agency-agents) (MIT) — see LICENSE.
