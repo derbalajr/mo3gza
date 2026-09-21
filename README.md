@@ -101,6 +101,13 @@ Call any agent directly at any time: "run secrets-credential-engineer on this re
 claude plugin marketplace update mo3gza && claude plugin update mo3gza@mo3gza
 ```
 
+## Maintaining (for contributors)
+Edit anything under `skills/`, `agents/` or `hooks/`, then:
+```bash
+./release.sh patch "tightened i18n routing"      # or minor / major
+```
+That bumps the version, validates, commits, pushes, and updates your own install in one go.
+
 ## Optional agents (not bundled — add only if you need them)
 
 Kept out of the core to keep every session lean. Each command copies one agent from
