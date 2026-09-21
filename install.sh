@@ -16,6 +16,16 @@ claude plugin install elements-of-style@superpowers-marketplace
 claude plugin install impeccable@impeccable
 claude plugin install mo3gza@mo3gza
 
+echo "▸ Enabling auto-update for mo3gza (pulls new versions on every Claude Code start)…"
+python3 - <<'PY'
+import json, os
+p = os.path.expanduser("~/.claude/settings.json")
+s = json.load(open(p)) if os.path.exists(p) else {}
+m = s.setdefault("extraKnownMarketplaces", {}).setdefault("mo3gza", {"source": {"source": "github", "repo": "derbalajr/mo3gza"}})
+m["autoUpdate"] = True
+json.dump(s, open(p, "w"), indent=2)
+PY
+
 echo "▸ Ignoring CLAUDE.local.md globally (never touches a repo's .gitignore)…"
 mkdir -p ~/.config/git
 grep -qxF 'CLAUDE.local.md' ~/.config/git/ignore 2>/dev/null || echo 'CLAUDE.local.md' >> ~/.config/git/ignore

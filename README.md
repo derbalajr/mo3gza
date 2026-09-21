@@ -97,6 +97,8 @@ Call any agent directly at any time: "run secrets-credential-engineer on this re
 - No "done" without test/lint output and reviewer findings.
 
 ## Update
+`install.sh` turns on auto-update, so new versions are pulled every time Claude Code starts — nothing to do.
+Installed manually? Either add `"autoUpdate": true` to the `mo3gza` entry under `extraKnownMarketplaces` in `~/.claude/settings.json`, or run:
 ```bash
 claude plugin marketplace update mo3gza && claude plugin update mo3gza@mo3gza
 ```
