@@ -70,6 +70,7 @@ async function api(cfg, method, route, body) {
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      redirect: 'manual',
       signal: AbortSignal.timeout(20000),
     });
     text = await res.text();
@@ -84,7 +85,16 @@ async function api(cfg, method, route, body) {
     data = null;
   }
   const s = res.status;
-  if (s >= 200 && s < 300) return { status: s, data };
+  if (s >= 300 && s < 400) {
+    const loc = res.headers.get('location') || '(none)';
+    throw new Fail(2, `ERP redirected (${s}) to ${loc}. Check erp_url in .handover.json.`);
+  }
+  if (s >= 200 && s < 300) {
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Fail(2, `unexpected response from ERP (${s}, not a JSON object). Check erp_url.`);
+    }
+    return { status: s, data };
+  }
   const detail = data ? JSON.stringify(data) : text.slice(0, 500);
   if (s === 409) {
     const keys = data && data.conflicts ? Object.keys(data.conflicts).join(', ') : '';
@@ -95,13 +105,17 @@ async function api(cfg, method, route, body) {
   throw new Fail(4, `Unexpected response (${s}): ${detail}`);
 }
 
-const currentBranch = () => git(['rev-parse', '--abbrev-ref', 'HEAD']);
+const currentBranch = () => {
+  const b = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+  return b === 'HEAD' ? null : b;
+};
+const branchQuery = (b) => (b ? `?branch=${encodeURIComponent(b)}` : '');
 const isDirty = () => git(['status', '--porcelain', '--untracked-files=no']) !== '';
 const headAuthor = () => ({
   name: git(['log', '-1', '--format=%an']),
   email: git(['log', '-1', '--format=%ae']),
 });
-const getHandover = (cfg, branch) => api(cfg, 'GET', `handover?branch=${encodeURIComponent(branch)}`);
+const getHandover = (cfg, branch) => api(cfg, 'GET', `handover${branchQuery(branch)}`);
 
 async function cmdPing(cfg) {
   const { data } = await api(cfg, 'GET', 'ping');
@@ -110,7 +124,7 @@ async function cmdPing(cfg) {
 
 async function cmdPending(cfg, flags) {
   const branch = flags.branch || currentBranch();
-  const { data } = await api(cfg, 'GET', `pending?branch=${encodeURIComponent(branch)}`);
+  const { data } = await api(cfg, 'GET', `pending${branchQuery(branch)}`);
   console.log(String(data.count));
 }
 
@@ -206,6 +220,7 @@ async function cmdPost(cfg, flags, positional) {
   }
   const body = { ...payload };
   if (body.branch === undefined) body.branch = flags.branch || currentBranch();
+  if (!body.branch) throw new Fail(1, 'Detached HEAD — check out a branch (or set branch in the payload).');
   if (body.sha === undefined) body.sha = git(['rev-parse', 'HEAD']);
   if (body.author === undefined) body.author = headAuthor();
   if (body.from_sha === undefined) {
@@ -214,8 +229,13 @@ async function cmdPost(cfg, flags, positional) {
     body.from_sha = typeof s === 'string' && HEX40.test(s) ? s : null;
   }
   const { status, data } = await api(cfg, 'POST', 'updates', body);
-  if (status === 202 || (data && data.pending)) console.log(`pending id=${data.id}`);
-  else console.log(`applied versions=${JSON.stringify((data && data.versions) || {})}`);
+  if (status === 202) {
+    if (data.pending !== true) throw new Fail(2, `unexpected response from ERP (202 without pending:true): ${JSON.stringify(data)}`);
+    console.log(`pending id=${data.id}`);
+  } else {
+    if (data.applied !== true) throw new Fail(2, `unexpected response from ERP (no applied:true): ${JSON.stringify(data)}`);
+    console.log(`applied versions=${JSON.stringify(data.versions || {})}`);
+  }
 }
 
 async function main() {

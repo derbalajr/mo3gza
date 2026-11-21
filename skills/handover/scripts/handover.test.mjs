@@ -45,8 +45,8 @@ before(async () => {
     req.on('end', () => {
       requests.push({ method: req.method, url: req.url, headers: req.headers, body });
       const r = responder(req);
-      res.writeHead(r.status, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(r.body));
+      res.writeHead(r.status, { 'content-type': 'application/json', ...(r.headers || {}) });
+      res.end(r.raw !== undefined ? r.raw : JSON.stringify(r.body));
     });
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -271,4 +271,70 @@ test('context with unknown last_synced_sha falls back to recent commits', async 
   assert.equal(c.last_synced_known, false);
   assert.deepEqual(c.commits_since_sync.map((x) => x.subject), ['first']);
   assert.deepEqual(c.author, { name: 'Head Author', email: 'head@example.com' });
+});
+
+function payloadFile(tag) {
+  const f = path.join(os.tmpdir(), `payload-${process.pid}-${Date.now()}${tag}.json`);
+  fs.writeFileSync(f, JSON.stringify({ summary: 's' }));
+  return f;
+}
+
+test('post: 302 redirect exits 2, is not followed', async () => {
+  const f = payloadFile('r');
+  const base = responder;
+  responder = (req) => (req.method === 'POST' ? { status: 302, headers: { location: '/login' }, raw: '' } : base(req));
+  const r = await run(['post', f]);
+  assert.equal(r.code, 2);
+  assert.match(r.stderr, /redirect.*\/login/i);
+  assert.equal(requests.filter((q) => q.url === '/login').length, 0);
+  assert.doesNotMatch(r.stdout, /applied/);
+});
+
+test('post: HTML 200 exits 2', async () => {
+  const f = payloadFile('h');
+  const base = responder;
+  responder = (req) => (req.method === 'POST' ? { status: 200, headers: { 'content-type': 'text/html' }, raw: '<html>hi</html>' } : base(req));
+  const r = await run(['post', f]);
+  assert.equal(r.code, 2);
+  assert.match(r.stderr, /unexpected response/);
+});
+
+test('post: JSON 200 without applied:true exits 2', async () => {
+  const f = payloadFile('n');
+  const base = responder;
+  responder = (req) => (req.method === 'POST' ? { status: 200, body: { ok: true } } : base(req));
+  const r = await run(['post', f]);
+  assert.equal(r.code, 2);
+  assert.doesNotMatch(r.stdout, /applied/);
+});
+
+test('post: empty 202 exits 2', async () => {
+  const f = payloadFile('e2');
+  const base = responder;
+  responder = (req) => (req.method === 'POST' ? { status: 202, raw: '' } : base(req));
+  const r = await run(['post', f]);
+  assert.equal(r.code, 2);
+  assert.match(r.stderr, /unexpected response/);
+});
+
+test('ping: empty 200 exits 2 not a TypeError', async () => {
+  responder = () => ({ status: 200, raw: '' });
+  const r = await run(['ping']);
+  assert.equal(r.code, 2);
+  assert.doesNotMatch(r.stderr, /TypeError/);
+});
+
+test('post on detached HEAD exits 1 without calling POST', async () => {
+  git(['checkout', '-q', '--detach']);
+  const r = await run(['post', payloadFile('d2')]);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /Detached HEAD/);
+  assert.equal(requests.filter((q) => q.method === 'POST').length, 0);
+});
+
+test('context on detached HEAD reports branch null', async () => {
+  git(['checkout', '-q', '--detach']);
+  const r = await run(['context']);
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).branch, null);
 });
