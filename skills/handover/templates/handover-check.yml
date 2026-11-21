@@ -1,6 +1,8 @@
 # Handover reminder (installed by /handover setup). No AI, never blocks merge:
 # asks the ERP whether this PR's branch has a pending handover update and
 # posts/removes one PR comment. Problems only produce a warning.
+# The comment is refreshed only when the PR gets a new push: running /handover
+# without pushing again leaves the old comment until the next push.
 name: handover-check
 
 on:
@@ -14,6 +16,7 @@ on:
       - '**/yarn.lock'
       - '**/pnpm-lock.yaml'
       - '.handover.json'
+      - '.github/workflows/handover-check.yml'
 
 permissions:
   contents: read
@@ -31,7 +34,7 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Checkout .handover.json only
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         continue-on-error: true
         with:
           sparse-checkout: .handover.json
@@ -81,7 +84,7 @@ jobs:
       - name: Update the PR comment
         if: steps.pending.outputs.state == 'updated' || steps.pending.outputs.state == 'missing'
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           STATE: ${{ steps.pending.outputs.state }}
         with:

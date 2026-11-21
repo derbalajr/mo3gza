@@ -104,7 +104,8 @@ what it just did, so a teammate who never touched the repo can run, change and d
 /handover status                  # what the ERP has, and whether it is behind
 ```
 
-`.handover.json` (repo-scoped token) is committed, so every clone works. Updates on a feature branch stay
+`.handover.json` (repo-scoped token) is committed, so every clone works. In a public repo, setup stops and asks first,
+then keeps the token out of git (`HANDOVER_TOKEN` env var). Rotate the token when someone leaves or the repo is shared. Updates on a feature branch stay
 pending until the PR merges. The `handover-check` workflow comments on PRs whose branch has no
 handover update. It never fails a build. Only env variable *names* and credential *locations* are ever written.
 Needs Node 18+.

@@ -338,3 +338,21 @@ test('context on detached HEAD reports branch null', async () => {
   assert.equal(r.code, 0, r.stderr);
   assert.equal(JSON.parse(r.stdout).branch, null);
 });
+
+test('http erp_url on a non-loopback host exits 1 before any request', async () => {
+  for (const url of ['http://erp.example.test', 'http://10.0.0.5:8080/', 'ftp://erp.example.test']) {
+    const r = await run(['ping'], { env: { HANDOVER_ERP_URL: url } });
+    assert.equal(r.code, 1, `${url}: ${r.stderr}`);
+    assert.match(r.stderr, /https/);
+  }
+  const bad = await run(['ping'], { env: { HANDOVER_ERP_URL: 'not a url' } });
+  assert.equal(bad.code, 1, bad.stderr);
+  assert.equal(requests.length, 0);
+});
+
+test('http erp_url on loopback is allowed', async () => {
+  for (const host of ['127.0.0.1', 'localhost']) {
+    const r = await run(['ping'], { env: { HANDOVER_ERP_URL: `http://${host}:${port}` } });
+    assert.equal(r.code, 0, `${host}: ${r.stderr}`);
+  }
+});

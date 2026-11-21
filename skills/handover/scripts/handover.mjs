@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI for the ERP handover machine API. Zero dependencies, Node >= 18.
-// Exit codes: 0 ok | 1 usage/config | 2 unreachable/5xx | 3 conflict | 4 rejected | 5 dirty tree
+// Exit codes: 0 ok | 1 usage/config/non-https erp_url | 2 unreachable/5xx | 3 conflict | 4 rejected | 5 dirty tree
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,7 +55,24 @@ function loadConfig() {
   if (!erpUrl || !token) {
     throw new Fail(1, `No handover config found (.handover.json with erp_url and token at ${top}). Run /handover setup.`);
   }
-  return { erpUrl: String(erpUrl).replace(/\/+$/, ''), token: String(token) };
+  return { erpUrl: checkErpUrl(String(erpUrl)), token: String(token) };
+}
+
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+// The token travels in a header, so plain http is only allowed to this machine.
+function checkErpUrl(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Fail(1, `erp_url "${raw}" is not a valid URL. Use https://… in .handover.json.`);
+  }
+  const ok = u.protocol === 'https:' || (u.protocol === 'http:' && LOOPBACK.has(u.hostname));
+  if (!ok) {
+    throw new Fail(1, `erp_url must use https:// (plain http is only allowed for localhost). Got ${u.protocol}//${u.host}`);
+  }
+  return raw.replace(/\/+$/, '');
 }
 
 async function api(cfg, method, route, body) {
