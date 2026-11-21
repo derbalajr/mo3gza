@@ -1,7 +1,7 @@
 <!-- handover-rule -->
 ## Handover
 
-This repo feeds the project's internal handover in the ERP (config: `.handover.json`).
+This repo feeds the project's internal handover in the ERP (config: `.handover.json`). The `/handover` skill lives in `.claude/skills/handover/`.
 
 After finishing and committing any task that changes behaviour, setup, deploy, services or data model — before pushing — run `/handover`. If the ERP is unreachable, say so; don't skip silently.
 

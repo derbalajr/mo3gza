@@ -1,7 +1,7 @@
 ---
 name: handover
 description: Keep this project's internal handover in the ERP up to date (overview, features, tech specs, run locally, environments, services, pitfalls, decisions, people). Use when the user types "/handover" (setup, init, status or update), says "update the handover", or after committing a change to behaviour, setup, deploy, services or data model in a repo that has a .handover.json file.
-argument-hint: "[setup <token> [erp_url] | init | status]"
+argument-hint: "[setup [<token> [erp_url]] | init | status]"
 ---
 
 # /handover
@@ -15,10 +15,9 @@ Arguments: `$ARGUMENTS`. Empty = **update** (the default mode).
 
 ## The CLI
 
-**Skill directory.** Resolve it once, then use it for the CLI and both templates. `SKILL_DIR` = `${CLAUDE_SKILL_DIR}`,
-the folder that holds this SKILL.md (the "Base directory for this skill"). If that variable was not expanded, use the
-highest installed version instead:
-`ls -d ~/.claude/plugins/cache/mo3gza/mo3gza/*/skills/handover | sort -V | tail -1`.
+**Skill directory.** `SKILL_DIR` = `${CLAUDE_SKILL_DIR}`, the folder that holds this SKILL.md (the "Base directory
+for this skill"). It is the same variable whether the skill runs from a plugin or from the repo's own copy in
+`.claude/skills/handover/`. If it was not expanded, use `<repo root>/.claude/skills/handover` (the vendored copy) as a last resort.
 Shell variables do not persist between Bash calls. Resolve the directory once, then write its **literal absolute path**
 in every later command. `$SKILL_DIR` below is a placeholder for that path, not a variable to rely on.
 
@@ -48,6 +47,13 @@ Exit codes: `0` ok · `1` usage, missing config, non-https `erp_url` or detached
 
 ### `/handover setup <token> [erp_url]`
 
+Setup also **vendors this skill into the repo** (step 4), so every teammate who opens the repo in Claude Code gets
+`/handover` with nothing to install. Claude Code loads project skills from `.claude/skills/<name>/` automatically.
+
+If the arguments contain no token and `.handover.json` already exists, this is a **refresh**: do only the vendoring
+step (step 4, with the version report), change nothing else, and skip steps 0-3 and 5-7. If there is no token and no
+`.handover.json`, ask the user for the token.
+
 `erp_url` defaults to `https://erp-api.giantrex.net`. It must be `https://` (plain `http://` only for localhost).
 The token starts with `hov_` and comes from the ERP (Project → Settings → Repositories). Do not echo it back in chat
 more than needed.
@@ -69,18 +75,33 @@ more than needed.
    - Only the start marker present (hand-edited file): change nothing. Show the user that part of `CLAUDE.md` and ask
      what to do. Never append a second block.
 3. Copy `$SKILL_DIR/templates/handover-check.yml` to `.github/workflows/handover-check.yml` (overwrite an older copy).
-4. Run `H ping`. On failure, report the error and the exit code, then stop. Steps 1–3 stay in place.
+4. **Vendor the skill** into `<repo>/.claude/skills/handover/`:
+   - If `$SKILL_DIR` already is that folder (the skill is running from the repo copy), skip the copy.
+   - Otherwise copy from `$SKILL_DIR`: `SKILL.md`, `scripts/handover.mjs` (**not** `handover.test.mjs`) and `templates/`.
+     Replace any older copy; delete files in the repo copy that no longer exist in the source.
+   - Write `VERSION` in the repo copy: one line with the version of the source. Read it from
+     `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` (`version` field) when that variable is set and the file exists. Otherwise
+     keep the existing `VERSION` if the source folder has one, else write `unknown`.
+   - Read the old `VERSION` (if any) first, and report `vendored handover skill: <old> -> <new>` (or `installed <new>`, or
+     `already <new>`).
+   - Stage exactly these paths with `git add -f .claude/skills/handover/SKILL.md .claude/skills/handover/VERSION .claude/skills/handover/scripts/handover.mjs .claude/skills/handover/templates`.
+     `-f` is needed because some clones exclude `.claude/` in `.git/info/exclude` or a global ignore, and it is safe for these exact paths.
+   - **Never** stage or commit other `.claude/` files (`settings.local.json`, etc.).
+   - Run `git check-ignore -v .claude/skills/handover/SKILL.md` and report the result (ignored or not), so the user knows
+     why `-f` was used.
+   - To update the vendored copy later, run `/handover setup` (no token) in the repo from a machine that has the newer version.
+5. Run `H ping`. On failure, report the error and the exit code, then stop. Steps 1–4 stay in place.
    In public-repo mode (no token in the file), `ping` needs `HANDOVER_TOKEN` set in the environment first. If it is not
    set, skip `ping` and tell the user to set it and run `/handover status` to check.
-5. Print these webhook steps for the user:
+6. Print these webhook steps for the user:
    - GitHub repo → Settings → Webhooks → Add webhook.
    - **Payload URL** and **Secret**: copy both from the ERP Repositories screen (the secret is shown once).
    - **Content type**: `application/json`.
    - **Events**: "Let me select individual events" → **Pushes** and **Pull requests** only.
-6. Remind the user: **rotate the token in the ERP** (one click, then commit the new `.handover.json`, or update
+7. Remind the user: **rotate the token in the ERP** (one click, then commit the new `.handover.json`, or update
    `HANDOVER_TOKEN` in public-repo mode) whenever someone
    leaves the team, or the repo is shared with or handed over to anyone outside it. The old token keeps working for 7 days.
-7. Do not commit unless the user asks. If they do, commit `.handover.json`, `CLAUDE.md` and the workflow together.
+8. Do not commit unless the user asks. If they do, commit `.handover.json`, `CLAUDE.md`, the workflow and the vendored skill files (staged with `-f`) together.
    Then suggest `/handover init` if `H get` shows no sections for this repository.
 
 ### `/handover init`

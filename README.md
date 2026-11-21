@@ -98,7 +98,8 @@ environments, services, pitfalls, decisions and people. The coding agent writes 
 what it just did, so a teammate who never touched the repo can run, change and deploy it.
 
 ```
-/handover setup hov_xxxxxxxx      # once per repo: .handover.json, CLAUDE.md rule, PR check workflow
+/handover setup hov_xxxxxxxx      # once per repo: .handover.json, CLAUDE.md rule, PR check workflow, vendored skill
+/handover setup                   # in a set-up repo: refresh the vendored skill to the running version
 /handover init                    # first full write-up of the repo
 /handover                         # after each commit that changes behaviour/setup/deploy/services/data, before push
 /handover status                  # what the ERP has, and whether it is behind
@@ -108,6 +109,9 @@ what it just did, so a teammate who never touched the repo can run, change and d
 then keeps the token out of git (`HANDOVER_TOKEN` env var). Rotate the token when someone leaves or the repo is shared. Updates on a feature branch stay
 pending until the PR merges. The `handover-check` workflow comments on PRs whose branch has no
 handover update. It never fails a build. Only env variable *names* and credential *locations* are ever written.
+Setup also copies the skill into the repo (`.claude/skills/handover/`, with a `VERSION` file), so teammates need nothing
+installed: Claude Code loads it from the repo. To update, run `/handover setup` in the repo from a machine that has the
+newer version.
 Needs Node 18+.
 
 ## Rules the mode enforces
