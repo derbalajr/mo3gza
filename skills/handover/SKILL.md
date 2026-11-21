@@ -17,7 +17,10 @@ Arguments: `$ARGUMENTS`. Empty = **update** (the default mode).
 
 **Skill directory.** `SKILL_DIR` = `${CLAUDE_SKILL_DIR}`, the folder that holds this SKILL.md (the "Base directory
 for this skill"). It is the same variable whether the skill runs from a plugin or from the repo's own copy in
-`.claude/skills/handover/`. If it was not expanded, use `<repo root>/.claude/skills/handover` (the vendored copy) as a last resort.
+`.claude/skills/handover/`. If it was not expanded, use `<repo root>/.claude/skills/handover` (the vendored copy) if it exists. For **setup only**, when
+that copy does not exist yet either, use the newest installed copy:
+`ls -d ~/.claude/plugins/cache/*/*/*/skills/handover | sort -V | tail -1` (version-aware sort). If none is found, stop and
+tell the user the skill source could not be located. Never skip the copy without saying so.
 Shell variables do not persist between Bash calls. Resolve the directory once, then write its **literal absolute path**
 in every later command. `$SKILL_DIR` below is a placeholder for that path, not a variable to rely on.
 
@@ -51,7 +54,7 @@ Setup also **vendors this skill into the repo** (step 4), so every teammate who 
 `/handover` with nothing to install. Claude Code loads project skills from `.claude/skills/<name>/` automatically.
 
 If the arguments contain no token and `.handover.json` already exists, this is a **refresh**: do only the vendoring
-step (step 4, with the version report), change nothing else, and skip steps 0-3 and 5-7. If there is no token and no
+step (step 4, with the version report), change nothing else, and skip steps 0-3 and 5-8. Stage only, and tell the user to commit the staged files (do not commit yourself). If there is no token and no
 `.handover.json`, ask the user for the token.
 
 `erp_url` defaults to `https://erp-api.giantrex.net`. It must be `https://` (plain `http://` only for localhost).
@@ -77,11 +80,17 @@ more than needed.
 3. Copy `$SKILL_DIR/templates/handover-check.yml` to `.github/workflows/handover-check.yml` (overwrite an older copy).
 4. **Vendor the skill** into `<repo>/.claude/skills/handover/`:
    - If `$SKILL_DIR` already is that folder (the skill is running from the repo copy), skip the copy.
+   - **Downgrade guard:** if the source version is older than the vendored `VERSION` (compare as semver), warn the user
+     and ask before overwriting. Do nothing further unless they agree.
    - Otherwise copy from `$SKILL_DIR`: `SKILL.md`, `scripts/handover.mjs` (**not** `handover.test.mjs`) and `templates/`.
-     Replace any older copy; delete files in the repo copy that no longer exist in the source.
+     Replace any older copy. Remove files in the repo copy that no longer exist in the source with
+     `git rm -r --cached --ignore-unmatch -- <file>` and then delete them, only inside `.claude/skills/handover/`, so the index matches.
+     If a `handover.test.mjs` is found in the repo copy, remove it the same way.
    - Write `VERSION` in the repo copy: one line with the version of the source. Read it from
      `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` (`version` field) when that variable is set and the file exists. Otherwise
-     keep the existing `VERSION` if the source folder has one, else write `unknown`.
+     use the source folder's own `VERSION` if it has one. If the source version still cannot be determined, keep the
+     existing repo-copy `VERSION` untouched and never overwrite a good `VERSION` with `unknown`. Write `unknown` only when
+     no `VERSION` exists at all.
    - Read the old `VERSION` (if any) first, and report `vendored handover skill: <old> -> <new>` (or `installed <new>`, or
      `already <new>`).
    - Stage exactly these paths with `git add -f .claude/skills/handover/SKILL.md .claude/skills/handover/VERSION .claude/skills/handover/scripts/handover.mjs .claude/skills/handover/templates`.
