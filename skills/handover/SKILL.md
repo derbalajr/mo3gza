@@ -19,6 +19,8 @@ Arguments: `$ARGUMENTS`. Empty = **update** (the default mode).
 the folder that holds this SKILL.md (the "Base directory for this skill"). If that variable was not expanded, use the
 highest installed version instead:
 `ls -d ~/.claude/plugins/cache/mo3gza/mo3gza/*/skills/handover | sort -V | tail -1`.
+Shell variables do not persist between Bash calls. Resolve the directory once, then write its **literal absolute path**
+in every later command. `$SKILL_DIR` below is a placeholder for that path, not a variable to rely on.
 
 Every call to the ERP goes through one script, run from the repo root:
 
@@ -68,20 +70,24 @@ more than needed.
      what to do. Never append a second block.
 3. Copy `$SKILL_DIR/templates/handover-check.yml` to `.github/workflows/handover-check.yml` (overwrite an older copy).
 4. Run `H ping`. On failure, report the error and the exit code, then stop. Steps 1–3 stay in place.
+   In public-repo mode (no token in the file), `ping` needs `HANDOVER_TOKEN` set in the environment first. If it is not
+   set, skip `ping` and tell the user to set it and run `/handover status` to check.
 5. Print these webhook steps for the user:
    - GitHub repo → Settings → Webhooks → Add webhook.
    - **Payload URL** and **Secret**: copy both from the ERP Repositories screen (the secret is shown once).
    - **Content type**: `application/json`.
    - **Events**: "Let me select individual events" → **Pushes** and **Pull requests** only.
-6. Remind the user: **rotate the token in the ERP** (one click, then commit the new `.handover.json`) whenever someone
+6. Remind the user: **rotate the token in the ERP** (one click, then commit the new `.handover.json`, or update
+   `HANDOVER_TOKEN` in public-repo mode) whenever someone
    leaves the team, or the repo is shared with or handed over to anyone outside it. The old token keeps working for 7 days.
 7. Do not commit unless the user asks. If they do, commit `.handover.json`, `CLAUDE.md` and the workflow together.
    Then suggest `/handover init` if `H get` shows no sections for this repository.
 
 ### `/handover init`
 
-This is the first full write-up of the repo. Run it on the default branch, after pulling. On any other branch it
-stays pending until that branch's PR merges.
+This is the first full write-up of the repo. Run it on the default branch with up-to-date code. Never pull or rebase
+yourself: run `git fetch`, and if the branch is behind its upstream, tell the user and let them update it. On any other
+branch the write-up stays pending until that branch's PR merges.
 
 1. Run `H context` and `H get`, then read `<git-dir>/handover/current.json`. If this repository already has sections, this
    is a full refresh: use their current text as input, keep facts that are still true, and set `base_version` to their version.
@@ -102,9 +108,10 @@ stays pending until that branch's PR merges.
 Run this **after committing** the work and before pushing.
 
 1. `H context`. If `dirty` is true, commit the work first, following the repo's commit rules. If the uncommitted changes
-   are not yours, ask the user. Never post handover text for uncommitted code. On the default branch, run
-   `git pull --rebase` before posting. If the pull changes HEAD afterwards, the synced commit is never pushed and the
-   ERP shows the repo as behind.
+   are not yours, ask the user. Never post handover text for uncommitted code. Post the local HEAD you committed:
+   **never pull, rebase, reset or otherwise rewrite history.** You may run `git fetch`. If the branch is behind its
+   upstream (`git status -sb` shows `behind`), mention it to the user: if they later rebase or merge before pushing,
+   the posted commit changes, and the ERP may show the repo as behind until the next `/handover`.
 2. `H get`, then read `<git-dir>/handover/current.json`: sections, features, notes, changes, `repository`, `pending`.
    If this repository has no sections and no features yet, say so and run **init** instead.
 3. Work out what changed. Read `commits_since_sync` and `diff_stat`. For details, run `git diff <last_synced_sha>..HEAD`
@@ -159,7 +166,7 @@ Then run `H post "$(git rev-parse --absolute-git-dir)/handover/payload.json"`.
 | 0 | `applied versions=…` (default branch) or `pending id=…` (other branch) | report it |
 | 2 | ERP unreachable or unexpected answer | tell the user **"ERP unreachable — handover not updated"**, and stop. The payload stays in `<git-dir>/handover/` for a later retry. Never claim it was updated. |
 | 3 | 409 conflict: someone else changed those sections | run `H get` again. For each conflicting section, merge their new text with your change (keep both), and use the new `version` as `base_version`. Retry **once**. If it fails again, stop and report. |
-| 4 | rejected | **404** or another odd code: check `erp_url`. **422**: read `errors.<field>`. A secret-guard hit names the line: rephrase it to say where the value is kept, not what it is. Fix any other validation errors, then retry. **Never** bypass the guard (no splitting, encoding or obfuscating values). **401**: the token is wrong or rotated, so check `.handover.json` and pull the latest. **403**: the project is archived, so stop. **413**: the update is over 2 MB, so split the features into batches. **429**: wait a minute, then retry once. |
+| 4 | rejected | **404** or another odd code: check `erp_url`. **422**: read `errors.<field>`. A secret-guard hit names the line: rephrase it to say where the value is kept, not what it is. Fix any other validation errors, then retry. **Never** bypass the guard (no splitting, encoding or obfuscating values). **401**: the token is wrong or rotated, so check `.handover.json` (or `HANDOVER_TOKEN`) and ask the user to get the current one. **403**: the project is archived, so stop. **413**: the update is over 2 MB, so split the features into batches. **429**: wait a minute, then retry once. |
 | 5 | uncommitted tracked changes | commit first. Use `--allow-dirty` only if the user explicitly says so. |
 | 1 | no config, `http://` erp_url, or detached HEAD | run `/handover setup` (use an `https://` URL), or check out a branch |
 
@@ -186,6 +193,9 @@ The handover always describes the **default branch**.
   a child branch into its parent, run `/handover` on the parent so the parent's pending update carries the child's changes.
 
 ## Rules
+
+- **Never pull, rebase, reset, amend or force anything** as part of `/handover`. It only reads git and posts the HEAD
+  that is already committed. `git fetch` is the only network git command it may run.
 
 - **Secrets.** Write env variable **names** only and credential **locations** only (e.g. "Forge → Environment",
   "team password manager → <entry name>"). Never paste values, `.env*` contents, keys, tokens, connection strings or
