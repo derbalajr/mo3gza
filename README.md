@@ -91,6 +91,24 @@ mo3gza off
 Verbs decide the path: *see / explain* → read-only map; *add / build / fix / ship* → full pipeline.
 Call any agent directly at any time: "run secrets-credential-engineer on this repo".
 
+## Project handover (`/handover`)
+
+Keeps a per-project internal handover in the ERP current: overview, features, tech specs, run locally,
+environments, services, pitfalls, decisions and people. The coding agent writes it from the code and from
+what it just did, so a teammate who never touched the repo can run, change and deploy it.
+
+```
+/handover setup hov_xxxxxxxx      # once per repo: .handover.json, CLAUDE.md rule, PR check workflow
+/handover init                    # first full write-up of the repo
+/handover                         # after each commit that changes behaviour/setup/deploy/services/data, before push
+/handover status                  # what the ERP has, and whether it is behind
+```
+
+`.handover.json` (repo-scoped token) is committed, so every clone works. Updates on a feature branch stay
+pending until the PR merges. The `handover-check` workflow comments on PRs whose branch has no
+handover update. It never fails a build. Only env variable *names* and credential *locations* are ever written.
+Needs Node 18+.
+
 ## Rules the mode enforces
 - Never commit AI-config files (`CLAUDE.local.md`, `.claude/`, `docs/superpowers/`).
 - Stops to ask only for destructive ops, pushes to shared branches, prod, secrets.

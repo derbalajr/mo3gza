@@ -53,5 +53,8 @@ Fix what they flag as high/critical before reporting.
 - Stop and ask only for: destructive/irreversible ops, git push/merge to shared branches, anything touching prod, secrets, or when the plan is broken enough that every path is a guess.
 - Never commit AI-config files (`CLAUDE.local.md`, `.claude/`, `docs/superpowers/`) — they are git-ignored on this machine; don't add them to a repo `.gitignore` either.
 
+## Handover
+- In a repo with `.handover.json`: after committing a change to behaviour, setup, deploy, services or data model (before pushing), run `/handover`.
+
 ## Reporting
 End every task with: what changed (files), test/lint output, reviewer findings and what was fixed, anything left open.

@@ -1,0 +1,106 @@
+# Handover reminder (installed by /handover setup). No AI, never blocks merge:
+# asks the ERP whether this PR's branch has a pending handover update and
+# posts/removes one PR comment. Problems only produce a warning.
+name: handover-check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '**/package-lock.json'
+      - '**/composer.lock'
+      - '**/yarn.lock'
+      - '**/pnpm-lock.yaml'
+      - '.handover.json'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: handover-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  handover-check:
+    # Same-repo PRs only: fork PRs get no write token and no access to the config.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout .handover.json only
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          sparse-checkout: .handover.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Ask the ERP for a pending handover update
+        id: pending
+        continue-on-error: true
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set +e
+          if [ ! -f .handover.json ]; then
+            echo "::warning::handover-check: .handover.json not found; run /handover setup. Skipping."
+            exit 0
+          fi
+          ERP_URL=$(jq -r '.erp_url // empty' .handover.json 2>/dev/null)
+          TOKEN=$(jq -r '.token // empty' .handover.json 2>/dev/null)
+          if [ -z "$ERP_URL" ] || [ -z "$TOKEN" ]; then
+            echo "::warning::handover-check: .handover.json needs erp_url and token. Skipping."
+            exit 0
+          fi
+          echo "::add-mask::$TOKEN"
+          BRANCH=$(jq -rn --arg b "$HEAD_REF" '$b|@uri')
+          CODE=$(curl -sS --max-time 15 -o "$RUNNER_TEMP/pending.json" -w '%{http_code}' \
+            -H "X-Handover-Token: $TOKEN" -H 'Accept: application/json' \
+            "${ERP_URL%/}/api/handover/v1/pending?branch=${BRANCH}")
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::handover-check: ERP answered ${CODE:-nothing}; could not check the handover. Skipping."
+            exit 0
+          fi
+          COUNT=$(jq -r 'if (.count|type) == "number" then .count else empty end' "$RUNNER_TEMP/pending.json" 2>/dev/null)
+          if [ -z "$COUNT" ]; then
+            echo "::warning::handover-check: unexpected ERP response. Skipping."
+            exit 0
+          fi
+          if [ "$COUNT" -gt 0 ]; then
+            echo "state=updated" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=missing" >> "$GITHUB_OUTPUT"
+            echo "::warning::Handover not updated for this branch. Run /handover in Claude Code before merging."
+          fi
+          exit 0
+
+      - name: Update the PR comment
+        if: steps.pending.outputs.state == 'updated' || steps.pending.outputs.state == 'missing'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          STATE: ${{ steps.pending.outputs.state }}
+        with:
+          script: |
+            const marker = '<!-- handover-check -->';
+            const body = `${marker}\nHandover not updated for this branch — run \`/handover\` in Claude Code before merging.`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+              const mine = comments.filter((c) => c.user && c.user.type === 'Bot' && (c.body || '').includes(marker));
+              if (process.env.STATE === 'missing') {
+                const [first, ...extra] = mine;
+                if (!first) await github.rest.issues.createComment({ owner, repo, issue_number, body });
+                else if (first.body !== body) await github.rest.issues.updateComment({ owner, repo, comment_id: first.id, body });
+                for (const c of extra) await github.rest.issues.deleteComment({ owner, repo, comment_id: c.id });
+              } else {
+                for (const c of mine) await github.rest.issues.deleteComment({ owner, repo, comment_id: c.id });
+              }
+            } catch (e) {
+              core.warning(`handover-check: could not update the PR comment: ${e.message}`);
+            }
